@@ -1,0 +1,21 @@
+name: Dependabot auto-approve and merge
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dependabot:
+    name: Auto-approve and merge Dependabot PR
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request' }}
+
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+      - uses: fastify/github-action-merge-dependabot@v3
+        with:
+          merge-method: squash
+          use-github-auto-merge: true
