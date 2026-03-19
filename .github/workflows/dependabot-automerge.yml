@@ -5,9 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       pr-number:
-        description: "Dependabot PR number to approve/merge"
-        required: true
+        description: "Dependabot PR number to approve/merge (ignored if all-open=true)"
+        required: false
         type: string
+      all-open:
+        description: "If true, approve/merge all open Dependabot PRs"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   dependabot:
@@ -32,5 +37,53 @@ jobs:
         uses: fastify/github-action-merge-dependabot@v3
         with:
           pr-number: ${{ github.event.inputs.pr-number }}
+          merge-method: squash
+          use-github-auto-merge: true
+
+  collect-open-dependabot-prs:
+    name: Collect open Dependabot PRs
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.all-open == 'true' }}
+    permissions:
+      pull-requests: read
+    outputs:
+      pr_numbers: ${{ steps.collect.outputs.pr_numbers }}
+    steps:
+      - name: Collect PR numbers
+        id: collect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+
+            const prNumbers = pulls
+              .filter((pr) => pr.user?.login === "dependabot[bot]")
+              .map((pr) => pr.number);
+
+            core.info(`Found ${prNumbers.length} open Dependabot PR(s).`);
+            core.setOutput("pr_numbers", JSON.stringify(prNumbers));
+
+  dependabot-all-open:
+    name: Auto-approve and merge all open Dependabot PRs
+    runs-on: ubuntu-latest
+    needs: collect-open-dependabot-prs
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.all-open == 'true' && needs.collect-open-dependabot-prs.outputs.pr_numbers != '[]' }}
+    permissions:
+      pull-requests: write
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        pr_number: ${{ fromJson(needs.collect-open-dependabot-prs.outputs.pr_numbers) }}
+    steps:
+      - name: Auto-approve and merge (workflow_dispatch: all-open)
+        uses: fastify/github-action-merge-dependabot@v3
+        with:
+          pr-number: ${{ matrix.pr_number }}
           merge-method: squash
           use-github-auto-merge: true
