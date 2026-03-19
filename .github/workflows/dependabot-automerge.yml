@@ -3,19 +3,34 @@ name: Dependabot auto-approve and merge
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      pr-number:
+        description: "Dependabot PR number to approve/merge"
+        required: true
+        type: string
 
 jobs:
   dependabot:
     name: Auto-approve and merge Dependabot PR
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request' }}
+    if: ${{ (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]') || github.event_name == 'workflow_dispatch' }}
 
     permissions:
       pull-requests: write
       contents: write
 
     steps:
-      - uses: fastify/github-action-merge-dependabot@v3
+      - name: Auto-approve and merge (pull_request)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: fastify/github-action-merge-dependabot@v3
         with:
+          merge-method: squash
+          use-github-auto-merge: true
+
+      - name: Auto-approve and merge (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: fastify/github-action-merge-dependabot@v3
+        with:
+          pr-number: ${{ github.event.inputs.pr-number }}
           merge-method: squash
           use-github-auto-merge: true
