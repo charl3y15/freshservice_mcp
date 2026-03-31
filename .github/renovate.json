@@ -1,0 +1,16 @@
+{
+  "extends": ["config:base", ":dependencyDashboard"],
+  "pip_requirements": {
+    "enabled": true
+  },
+  "automerge": true,
+  "major": {
+    "automerge": true
+  },
+  "minor": {
+    "automerge": true
+  },
+  "patch": {
+    "automerge": true
+  }
+}
